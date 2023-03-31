@@ -12,6 +12,7 @@ import {
 
 export type PerformButtonProps = SidebarProps & {
   isDisabled: boolean;
+  ethBalanceSubGasBuffer: BigNumber | null;
   requiredPayment: BigNumber | null;
   requiredFlowAmount: BigNumber | null;
   requiredFlowPermissions: number | null;
@@ -32,6 +33,7 @@ export function PerformButton(props: PerformButtonProps) {
     paymentToken,
     smartAccount,
     spender,
+    ethBalanceSubGasBuffer,
     requiredPayment,
     sfFramework,
     requiredFlowPermissions,
@@ -70,6 +72,7 @@ export function PerformButton(props: PerformButtonProps) {
         !requiredFlowAmount ||
         !spender ||
         !requiredPayment ||
+        !ethBalanceSubGasBuffer ||
         !smartAccount?.safe ||
         !smartAccount?.safeAddress
       ) {
@@ -80,9 +83,12 @@ export function PerformButton(props: PerformButtonProps) {
 
       const safeGasLimit = BigNumber.from("12000000");
       const relayGasLimit = BigNumber.from("15000000");
-      const wrapAmount = requiredPayment.add(requiredFlowAmount).toString();
+      const minimumEthXForTransfer = requiredPayment.add(requiredFlowAmount);
+      const wrapAmount = ethBalanceSubGasBuffer.lt(minimumEthXForTransfer)
+        ? ethBalanceSubGasBuffer
+        : minimumEthXForTransfer;
       const wrap = await paymentToken.upgrade({
-        amount: wrapAmount,
+        amount: wrapAmount.toString(),
       }).populateTransactionPromise;
       const approveSpending = await paymentToken.approve({
         amount: requiredPayment.toString(),
@@ -118,7 +124,7 @@ export function PerformButton(props: PerformButtonProps) {
       const wrapTransactionData = {
         data: wrap.data,
         to: wrap.to,
-        value: wrapAmount,
+        value: wrapAmount.toString(),
       };
       const approveSpendingTransactionData = {
         data: approveSpending.data,
@@ -158,7 +164,6 @@ export function PerformButton(props: PerformButtonProps) {
           gasLimit: relayGasLimit,
         },
       });
-
       await waitRelayedTxConfirmation(smartAccount, provider, res.taskId);
       await callback();
 

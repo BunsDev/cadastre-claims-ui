@@ -94,6 +94,8 @@ export function ActionForm(props: ActionFormProps) {
   } = actionData;
   const [isBalanceInsufficient, setIsBalanceInsufficient] =
     React.useState(false);
+  const [ethBalanceSubGasBuffer, setEthBalanceSubGasBuffer] =
+    React.useState<BigNumber>(BigNumber.from(0));
 
   const { superTokenBalance } = useSuperTokenBalance(
     account,
@@ -291,9 +293,18 @@ export function ActionForm(props: ActionFormProps) {
       const ethBalance = await smartAccount?.safe?.getBalance();
       const gasBuffer = ethers.utils.parseEther("0.002");
 
+      setEthBalanceSubGasBuffer(
+        ethBalance ? ethBalance.sub(gasBuffer) : BigNumber.from(0)
+      );
+
+      const minimumEthXForTransfer =
+        requiredPayment &&
+        requiredFlowAmount &&
+        requiredPayment.add(requiredFlowAmount);
+
       setIsBalanceInsufficient(
-        requiredPayment && ethBalance
-          ? requiredPayment.gt(ethBalance.sub(gasBuffer))
+        ethBalanceSubGasBuffer && minimumEthXForTransfer
+          ? ethBalanceSubGasBuffer.lte(minimumEthXForTransfer)
           : false
       );
     })();
@@ -467,6 +478,7 @@ export function ActionForm(props: ActionFormProps) {
             <AddFundsButton {...props} />
             <PerformButton
               {...props}
+              ethBalanceSubGasBuffer={ethBalanceSubGasBuffer}
               requiredFlowAmount={requiredFlowAmount ?? null}
               requiredPayment={requiredPayment ?? null}
               spender={spender ?? null}

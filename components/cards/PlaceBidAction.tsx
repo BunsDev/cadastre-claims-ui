@@ -152,7 +152,7 @@ function PlaceBidAction(props: PlaceBidActionProps) {
           : false
       );
     })();
-  }, []);
+  }, [newForSalePrice, requiredBuffer]);
 
   function placeBid() {
     setIsActing(true);

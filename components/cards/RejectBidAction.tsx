@@ -231,7 +231,7 @@ function RejectBidAction(props: RejectBidActionProps) {
           : false
       );
     })();
-  }, []);
+  }, [penaltyPayment, newRequiredBuffer, oldRequiredBuffer]);
 
   const bidDeadline =
     bidTimestamp && bidPeriodLength ? bidTimestamp.add(bidPeriodLength) : null;

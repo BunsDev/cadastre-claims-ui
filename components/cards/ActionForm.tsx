@@ -297,7 +297,7 @@ export function ActionForm(props: ActionFormProps) {
           : false
       );
     })();
-  }, []);
+  }, [requiredPayment]);
 
   return (
     <>

@@ -4,14 +4,17 @@ import { formatBalance } from "../../lib/formatBalance";
 import { ParcelFieldsToUpdate } from "../Sidebar";
 import TransactionSummaryView from "./TransactionSummaryView";
 import { fromValueToRate, calculateBufferNeeded } from "../../lib/utils";
-import { PAYMENT_TOKEN, SECONDS_IN_YEAR } from "../../lib/constants";
+import {
+  PAYMENT_TOKEN,
+  SECONDS_IN_YEAR,
+  GAS_BUFFER,
+} from "../../lib/constants";
 import StreamingInfo from "./StreamingInfo";
 import Card from "react-bootstrap/Card";
 import Form from "react-bootstrap/Form";
 import Spinner from "react-bootstrap/Spinner";
 import Alert from "react-bootstrap/Alert";
 import { truncateEth } from "../../lib/truncate";
-import { useSuperTokenBalance } from "../../lib/superTokenBalance";
 import Image from "react-bootstrap/Image";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
@@ -55,7 +58,6 @@ const infoIcon = (
 function RejectBidAction(props: RejectBidActionProps) {
   const {
     smartAccount,
-    account,
     parcelData,
     perSecondFeeNumerator,
     perSecondFeeDenominator,
@@ -82,13 +84,6 @@ function RejectBidAction(props: RejectBidActionProps) {
     React.useState<string>(bidForSalePriceDisplay);
   const [isBalanceInsufficient, setIsBalanceInsufficient] =
     React.useState(false);
-  const [ethBalanceSubGasBuffer, setEthBalanceSubGasBuffer] =
-    React.useState<BigNumber>(BigNumber.from(0));
-
-  const { superTokenBalance } = useSuperTokenBalance(
-    account,
-    paymentToken.address
-  );
 
   const spinner = (
     <Spinner as="span" size="sm" animation="border" role="status">
@@ -224,23 +219,19 @@ function RejectBidAction(props: RejectBidActionProps) {
   React.useEffect(() => {
     (async () => {
       const ethBalance = await smartAccount?.safe?.getBalance();
-      const gasBuffer = ethers.utils.parseEther("0.002");
-
-      setEthBalanceSubGasBuffer(
-        ethBalance ? ethBalance.sub(gasBuffer) : BigNumber.from(0)
-      );
-
+      const gasBuffer = ethers.utils.parseEther(GAS_BUFFER);
       const requiredPayment =
         penaltyPayment && newRequiredBuffer && oldRequiredBuffer
           ? penaltyPayment.add(newRequiredBuffer).sub(oldRequiredBuffer)
           : null;
 
-      // TODO: is the correct way to check for insufficient balance?
       setIsBalanceInsufficient(
-        requiredPayment ? requiredPayment?.gt(superTokenBalance) : false
+        requiredPayment && ethBalance
+          ? requiredPayment.gt(ethBalance.sub(gasBuffer))
+          : false
       );
     })();
-  }, [superTokenBalance]);
+  }, []);
 
   const bidDeadline =
     bidTimestamp && bidPeriodLength ? bidTimestamp.add(bidPeriodLength) : null;
@@ -406,7 +397,6 @@ function RejectBidAction(props: RejectBidActionProps) {
             <br />
             <PerformButton
               {...props}
-              ethBalanceSubGasBuffer={ethBalanceSubGasBuffer}
               requiredFlowAmount={annualNetworkFeeRate ?? null}
               requiredPayment={
                 penaltyPayment && newRequiredBuffer && oldRequiredBuffer

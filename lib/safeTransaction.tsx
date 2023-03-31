@@ -111,6 +111,7 @@ export async function waitRelayedTxConfirmation(
     const res = await fetch(
       `https://relay.gelato.digital/tasks/status/${taskId}`
     );
+
     if (res.ok) {
       const { task } = await res.json();
 

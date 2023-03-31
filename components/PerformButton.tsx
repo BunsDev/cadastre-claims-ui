@@ -1,9 +1,8 @@
-import * as React from "react";
 import { ethers, BigNumber } from "ethers";
 import Button from "react-bootstrap/Button";
 import Spinner from "react-bootstrap/Spinner";
 import { SidebarProps } from "./Sidebar";
-import { NETWORK_ID } from "../lib/constants";
+import { NETWORK_ID, GAS_BUFFER } from "../lib/constants";
 import {
   getEncodedSafeTransaction,
   getMultiSendTransactionData,
@@ -12,7 +11,6 @@ import {
 
 export type PerformButtonProps = SidebarProps & {
   isDisabled: boolean;
-  ethBalanceSubGasBuffer: BigNumber | null;
   requiredPayment: BigNumber | null;
   requiredFlowAmount: BigNumber | null;
   requiredFlowPermissions: number | null;
@@ -22,8 +20,10 @@ export type PerformButtonProps = SidebarProps & {
   isActing: boolean;
   setIsActing: (v: boolean) => void;
   setDidFail: (v: boolean) => void;
-  encodeFunctionData: () => string | undefined;
-  callback: () => Promise<string | void>;
+  encodeFunctionData: () => string | void;
+  callback: (
+    receipt?: ethers.providers.TransactionReceipt
+  ) => Promise<string | void>;
   buttonText: string;
 };
 
@@ -33,7 +33,6 @@ export function PerformButton(props: PerformButtonProps) {
     paymentToken,
     smartAccount,
     spender,
-    ethBalanceSubGasBuffer,
     requiredPayment,
     sfFramework,
     requiredFlowPermissions,
@@ -72,23 +71,26 @@ export function PerformButton(props: PerformButtonProps) {
         !requiredFlowAmount ||
         !spender ||
         !requiredPayment ||
-        !ethBalanceSubGasBuffer ||
         !smartAccount?.safe ||
         !smartAccount?.safeAddress
       ) {
-        throw new Error("Missing parameters");
+        throw new Error("Missing props");
       }
 
       setIsActing(true);
 
       const safeGasLimit = BigNumber.from("12000000");
       const relayGasLimit = BigNumber.from("15000000");
-      const minimumEthXForTransfer = requiredPayment.add(requiredFlowAmount);
-      const wrapAmount = ethBalanceSubGasBuffer.lt(minimumEthXForTransfer)
-        ? ethBalanceSubGasBuffer
-        : minimumEthXForTransfer;
+      const ethBalance = await smartAccount.safe.getBalance();
+      const gasBufferedBalance = ethBalance.sub(
+        ethers.utils.parseEther(GAS_BUFFER)
+      );
+      const yearlyFeeBufferedPayment = requiredPayment.add(requiredFlowAmount);
+      const wrapAmount = gasBufferedBalance.lt(yearlyFeeBufferedPayment)
+        ? gasBufferedBalance.toString()
+        : yearlyFeeBufferedPayment.toString();
       const wrap = await paymentToken.upgrade({
-        amount: wrapAmount.toString(),
+        amount: wrapAmount,
       }).populateTransactionPromise;
       const approveSpending = await paymentToken.approve({
         amount: requiredPayment.toString(),
@@ -124,7 +126,7 @@ export function PerformButton(props: PerformButtonProps) {
       const wrapTransactionData = {
         data: wrap.data,
         to: wrap.to,
-        value: wrapAmount.toString(),
+        value: wrapAmount,
       };
       const approveSpendingTransactionData = {
         data: approveSpending.data,
@@ -164,9 +166,13 @@ export function PerformButton(props: PerformButtonProps) {
           gasLimit: relayGasLimit,
         },
       });
-      await waitRelayedTxConfirmation(smartAccount, provider, res.taskId);
-      await callback();
 
+      const receipt = await waitRelayedTxConfirmation(
+        smartAccount,
+        provider,
+        res.taskId
+      );
+      await callback(receipt);
       setIsActing(false);
     } catch (err) {
       /* eslint-disable @typescript-eslint/no-explicit-any */

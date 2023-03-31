@@ -142,7 +142,7 @@ function TransactionSummaryView({
           />
         </p>
         <p>
-          &emsp;Purchase Payment:{" "}
+          Purchase Payment:{" "}
           <InfoTooltip
             content={
               <div style={{ textAlign: "left" }}>
@@ -158,7 +158,7 @@ function TransactionSummaryView({
           />
         </p>
         <p>
-          &emsp;Refundable Collateral:{" "}
+          Refundable Collateral:{" "}
           <InfoTooltip
             content={
               <div style={{ textAlign: "left" }}>

@@ -1,4 +1,4 @@
-import * as React from "react";
+import { useState, useEffect } from "react";
 import Card from "react-bootstrap/Card";
 import Alert from "react-bootstrap/Alert";
 import Form from "react-bootstrap/Form";
@@ -9,6 +9,7 @@ import {
   PAYMENT_TOKEN,
   NETWORK_ID,
   SECONDS_IN_YEAR,
+  GAS_BUFFER,
 } from "../../lib/constants";
 import BN from "bn.js";
 import { AssetId } from "caip";
@@ -20,7 +21,6 @@ import { formatBalance } from "../../lib/formatBalance";
 import TransactionError from "./TransactionError";
 import PerformButton from "../PerformButton";
 import AddFundsButton from "../profile/AddFundsButton";
-import { useSuperTokenBalance } from "../../lib/superTokenBalance";
 
 export type ActionFormProps = SidebarProps & {
   perSecondFeeNumerator: BigNumber;
@@ -29,7 +29,9 @@ export type ActionFormProps = SidebarProps & {
   licenseOwner?: string;
   loading: boolean;
   performAction: () => string | undefined;
-  callback: () => Promise<string | void>;
+  callback: (
+    receipt?: ethers.providers.TransactionReceipt
+  ) => Promise<string | void>;
   actionData: ActionData;
   setActionData: React.Dispatch<React.SetStateAction<ActionData>>;
   summaryView: JSX.Element;
@@ -79,7 +81,6 @@ export function ActionForm(props: ActionFormProps) {
     hasOutstandingBid = false,
     setShouldRefetchParcelsData,
     minForSalePrice,
-    paymentToken,
     setShouldParcelContentUpdate,
   } = props;
 
@@ -92,15 +93,8 @@ export function ActionForm(props: ActionFormProps) {
     isActing,
     errorMessage,
   } = actionData;
-  const [isBalanceInsufficient, setIsBalanceInsufficient] =
-    React.useState(false);
-  const [ethBalanceSubGasBuffer, setEthBalanceSubGasBuffer] =
-    React.useState<BigNumber>(BigNumber.from(0));
 
-  const { superTokenBalance } = useSuperTokenBalance(
-    account,
-    paymentToken.address
-  );
+  const [isBalanceInsufficient, setIsBalanceInsufficient] = useState(false);
 
   const infoIcon = (
     <Image
@@ -162,13 +156,17 @@ export function ActionForm(props: ActionFormProps) {
     setActionData(_updateData(updatedValues));
   }
 
-  async function submit() {
+  async function submit(receipt?: ethers.providers.TransactionReceipt) {
     updateActionData({ isActing: true, didFail: false });
 
     let licenseId: string | void;
     try {
       // Perform action
-      licenseId = await callback();
+      if (receipt) {
+        licenseId = await callback(receipt);
+      } else {
+        await callback();
+      }
     } catch (err) {
       /* eslint-disable @typescript-eslint/no-explicit-any */
       if (
@@ -258,7 +256,7 @@ export function ActionForm(props: ActionFormProps) {
         parcelId: assetId,
       });
     } catch (err) {
-      console.error(err);
+      console.warn(err);
       updateActionData({
         isActing: false,
         didFail: true,
@@ -282,33 +280,24 @@ export function ActionForm(props: ActionFormProps) {
 
   const isLoading = loading;
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (displayNewForSalePrice == null) {
       updateActionData({ displayNewForSalePrice: displayCurrentForSalePrice });
     }
   }, [displayCurrentForSalePrice, displayNewForSalePrice, updateActionData]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     (async () => {
       const ethBalance = await smartAccount?.safe?.getBalance();
-      const gasBuffer = ethers.utils.parseEther("0.002");
-
-      setEthBalanceSubGasBuffer(
-        ethBalance ? ethBalance.sub(gasBuffer) : BigNumber.from(0)
-      );
-
-      const minimumEthXForTransfer =
-        requiredPayment &&
-        requiredFlowAmount &&
-        requiredPayment.add(requiredFlowAmount);
+      const gasBuffer = ethers.utils.parseEther(GAS_BUFFER);
 
       setIsBalanceInsufficient(
-        ethBalanceSubGasBuffer && minimumEthXForTransfer
-          ? ethBalanceSubGasBuffer.lte(minimumEthXForTransfer)
+        requiredPayment && ethBalance
+          ? requiredPayment.gt(ethBalance.sub(gasBuffer))
           : false
       );
     })();
-  }, [superTokenBalance]);
+  }, []);
 
   return (
     <>
@@ -478,7 +467,6 @@ export function ActionForm(props: ActionFormProps) {
             <AddFundsButton {...props} />
             <PerformButton
               {...props}
-              ethBalanceSubGasBuffer={ethBalanceSubGasBuffer}
               requiredFlowAmount={requiredFlowAmount ?? null}
               requiredPayment={requiredPayment ?? null}
               spender={spender ?? null}

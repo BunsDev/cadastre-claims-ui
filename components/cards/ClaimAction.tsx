@@ -45,7 +45,6 @@ function ClaimAction(props: ClaimActionProps) {
   const [flowOperator, setFlowOperator] = React.useState<string>("");
 
   const { displayNewForSalePrice } = actionData;
-  const { provider } = sfFramework.settings;
 
   const isForSalePriceInvalid: boolean =
     displayNewForSalePrice != null &&
@@ -126,13 +125,18 @@ function ClaimAction(props: ClaimActionProps) {
     return claimTxData;
   }
 
-  const parcelClaimedCallback = async () => {
+  const parcelClaimedCallback = async (
+    receipt?: ethers.providers.TransactionReceipt
+  ) => {
+    if (!receipt) {
+      throw new Error("Missing transaction receipt");
+    }
+
     const filter = registryContract.filters.ParcelClaimedV2(null, null);
-    const blockNumber = await provider.getBlockNumber();
     const res = await registryContract.queryFilter(
       filter,
-      blockNumber - 1000,
-      blockNumber
+      receipt.blockNumber,
+      receipt.blockNumber
     );
     const licenseId = res[0].args[0].toString();
     setNewParcel((prev) => {

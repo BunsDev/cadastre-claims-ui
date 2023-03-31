@@ -14,6 +14,7 @@ export const RPC_URLS: Record<number, string> = {
   420: `https://optimism-goerli.infura.io/v3/${process.env
     .NEXT_PUBLIC_INFURA_PROJECT_ID!}`,
 };
+export const GAS_BUFFER = "0.002";
 export const WEB3AUTH_CLIENT_ID = process.env.NEXT_PUBLIC_WEB3AUTH_CLIENT_ID!;
 export const SPATIAL_DOMAIN = process.env.NEXT_PUBLIC_SPATIAL_DOMAIN!;
 export const SSX_HOST = process.env.NEXT_PUBLIC_SSX_HOST!;

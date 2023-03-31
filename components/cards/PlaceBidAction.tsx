@@ -4,13 +4,16 @@ import { formatBalance } from "../../lib/formatBalance";
 import { ParcelFieldsToUpdate } from "../Sidebar";
 import TransactionSummaryView from "./TransactionSummaryView";
 import { fromValueToRate, calculateBufferNeeded } from "../../lib/utils";
-import { PAYMENT_TOKEN, SECONDS_IN_YEAR } from "../../lib/constants";
+import {
+  PAYMENT_TOKEN,
+  SECONDS_IN_YEAR,
+  GAS_BUFFER,
+} from "../../lib/constants";
 import StreamingInfo from "./StreamingInfo";
 import Card from "react-bootstrap/Card";
 import Form from "react-bootstrap/Form";
 import Alert from "react-bootstrap/Alert";
 import { truncateEth } from "../../lib/truncate";
-import { useSuperTokenBalance } from "../../lib/superTokenBalance";
 import Image from "react-bootstrap/Image";
 import { STATE } from "../Map";
 import InfoTooltip from "../InfoTooltip";
@@ -43,7 +46,6 @@ const infoIcon = (
 
 function PlaceBidAction(props: PlaceBidActionProps) {
   const {
-    account,
     smartAccount,
     parcelData,
     perSecondFeeNumerator,
@@ -64,13 +66,6 @@ function PlaceBidAction(props: PlaceBidActionProps) {
   >(null);
   const [isBalanceInsufficient, setIsBalanceInsufficient] =
     React.useState(false);
-  const [ethBalanceSubGasBuffer, setEthBalanceSubGasBuffer] =
-    React.useState<BigNumber>(BigNumber.from(0));
-
-  const { superTokenBalance } = useSuperTokenBalance(
-    account,
-    paymentToken.address
-  );
 
   const displayCurrentForSalePrice = formatBalance(
     parcelData.currentBid.forSalePrice
@@ -145,27 +140,19 @@ function PlaceBidAction(props: PlaceBidActionProps) {
   React.useEffect(() => {
     (async () => {
       const ethBalance = await smartAccount?.safe?.getBalance();
-      const gasBuffer = ethers.utils.parseEther("0.002");
-
-      setEthBalanceSubGasBuffer(
-        ethBalance ? ethBalance.sub(gasBuffer) : BigNumber.from(0)
-      );
-
+      const gasBuffer = ethers.utils.parseEther(GAS_BUFFER);
       const requiredPayment =
         newForSalePrice && requiredBuffer
           ? newForSalePrice.add(requiredBuffer)
           : null;
 
-      // TODO: is the correct way to check for insufficient balance?
       setIsBalanceInsufficient(
-        requiredPayment
-          ? requiredPayment.gt(
-              ethBalance ? superTokenBalance.add(ethBalance) : superTokenBalance
-            )
+        requiredPayment && ethBalance
+          ? requiredPayment.gt(ethBalance.sub(gasBuffer))
           : false
       );
     })();
-  }, [superTokenBalance]);
+  }, []);
 
   function placeBid() {
     setIsActing(true);
@@ -308,7 +295,6 @@ function PlaceBidAction(props: PlaceBidActionProps) {
             <AddFundsButton {...props} />
             <PerformButton
               {...props}
-              ethBalanceSubGasBuffer={ethBalanceSubGasBuffer ?? null}
               requiredFlowAmount={annualNetworkFeeRate ?? null}
               requiredPayment={
                 newForSalePrice && requiredBuffer

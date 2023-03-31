@@ -183,7 +183,6 @@ function EditAction(props: EditActionProps) {
       throw new Error("Could not find existingNetworkFee");
     }
 
-    // Check for changes
     if (
       !displayNewForSalePrice ||
       !newNetworkFee ||
@@ -199,6 +198,19 @@ function EditAction(props: EditActionProps) {
     );
 
     return encodedTxData;
+  }
+
+  async function callback() {
+    if (
+      !displayNewForSalePrice ||
+      !newNetworkFee ||
+      displayNewForSalePrice == displayCurrentForSalePrice
+    ) {
+      // Content change only
+      return;
+    }
+
+    setParcelFieldsToUpdate({ forSalePrice: true, licenseOwner: false });
   }
 
   return (
@@ -223,9 +235,7 @@ function EditAction(props: EditActionProps) {
             <></>
           )
         }
-        callback={async () =>
-          setParcelFieldsToUpdate({ forSalePrice: true, licenseOwner: false })
-        }
+        callback={callback}
         requiredPayment={
           requiredNewBuffer && requiredExistingBuffer
             ? requiredNewBuffer.sub(requiredExistingBuffer)

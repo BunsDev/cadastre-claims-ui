@@ -106,12 +106,12 @@ export function PerformButton(props: PerformButtonProps) {
       ).populateTransactionPromise;
 
       if (
+        !wrap.to ||
+        !wrap.data ||
         !approveSpending.to ||
         !approveSpending.data ||
         !approveFlow.to ||
-        !approveFlow.data ||
-        !wrap.to ||
-        !wrap.data
+        !approveFlow.data
       ) {
         throw new Error("Error populating Superfluid transaction");
       }
@@ -120,6 +120,9 @@ export function PerformButton(props: PerformButtonProps) {
 
       /* Offchain content change only */
       if (!encodedGwContractFunctionData) {
+        await callback();
+        setIsActing(false);
+
         return;
       }
 

@@ -544,8 +544,8 @@ function ProfileModal(props: ProfileModalProps) {
     }
 
     const weiAmount = ethers.utils.parseEther(amount).toString();
-    const safeGasLimit = BigNumber.from("1000000");
-    const relayGasLimit = BigNumber.from("1500000");
+    const safeGasLimit = BigNumber.from("5000000");
+    const relayGasLimit = BigNumber.from("6000000");
 
     let safeTransactionData: MetaTransactionData | null = null;
 
@@ -578,7 +578,7 @@ function ProfileModal(props: ProfileModalProps) {
             data,
             to,
             value: "0",
-            operation: OperationType.DelegateCall,
+            operation: OperationType.Call,
           };
 
           setIsUnwrapping(true);
